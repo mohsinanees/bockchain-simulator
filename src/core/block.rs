@@ -1,5 +1,5 @@
 // src/core/block.rs
-use crate::utils::crypto::{Hashable, hash};
+use crate::utils::crypto::{hash, Hashable};
 use serde::{Deserialize, Serialize};
 
 /// Block header (metadata)
@@ -43,6 +43,27 @@ impl Block {
             transactions,
             hash,
         }
+    }
+
+    /// Mines a new block with Proof-of-Work
+    pub fn mine(header: BlockHeader, transactions: Vec<Transaction>, difficulty: u32) -> Self {
+        let mut header = header;
+        let pow = ProofOfWork::new(difficulty);
+        let transactions_hash = Self::hash_transactions(&transactions);
+
+        let hash = pow.mine_block(&mut header, &transactions_hash);
+
+        Self {
+            header,
+            transactions,
+            hash,
+        }
+    }
+
+    /// Hashes all transactions for the block header
+    fn hash_transactions(transactions: &[Transaction]) -> String {
+        let tx_hashes: Vec<String> = transactions.iter().map(|tx| tx.id.clone()).collect();
+        compute_merkle_root(tx_hashes)
     }
 
     /// Calculates the block's SHA-256 hash

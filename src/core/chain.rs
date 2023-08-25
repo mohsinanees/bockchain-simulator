@@ -23,22 +23,33 @@ impl Blockchain {
         }
     }
 
-    /// Adds a validated block to the chain
-    pub fn add_block(&mut self, block: Block) -> Result<(), BlockchainError> {
-        let last_block = self.blocks.last().ok_or(BlockchainError::EmptyChain)?;
+    pub fn add_block(&mut self, mut block: Block) -> Result<(), BlockchainError> {
+        // 1. Validate Proof-of-Work
+        let pow = ProofOfWork::new(self.difficulty);
+        if !pow.validate(&block.hash) {
+            return Err(BlockchainError::InvalidPoW);
+        }
 
-        // Validate block linkage
+        // 2. Validate block linkage (previous hash)
+        let last_block = self.blocks.last().ok_or(BlockchainError::EmptyChain)?;
         if block.header.prev_block_hash != last_block.hash {
             return Err(BlockchainError::InvalidBlockLink);
         }
 
-        // Validate proof-of-work
-        if !self.validate_pow(&block) {
-            return Err(BlockchainError::InvalidPoW);
+        // 3. Validate block structure (e.g., hash correctness)
+        if !block.is_valid() {
+            return Err(BlockchainError::InvalidBlock);
         }
 
+        // 4. Update UTXO set (if transactions exist)
+        self.update_utxo_set(&block)?;
+
+        // 5. Add block to chain
         self.blocks.push(block);
-        self.update_utxo_set()?;
+
+        // 6. Adjust difficulty for next block
+        self.adjust_difficulty(block.header.timestamp);
+
         Ok(())
     }
 
